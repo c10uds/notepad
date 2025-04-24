@@ -13,6 +13,14 @@
 #include <QDebug>
 #include <QTabWidget>
 #include <QTextEdit>
+#include <QFontDialog>
+#include <QColorDialog>
+#include <QDialog>
+#include <QGridLayout>
+#include <QLabel>
+#include <QLineEdit>
+#include <QCheckBox>
+#include <QPushButton>
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     // 使用 QTabWidget 实现多标签页编辑，同时启用关闭按钮
@@ -53,6 +61,16 @@ void MainWindow::createMenus() {
     connect(saveAction, &QAction::triggered, this, &MainWindow::saveFile);
     connect(saveAsAction, &QAction::triggered, this, &MainWindow::saveAs);
     connect(exitAction, &QAction::triggered, this, &MainWindow::close);
+
+    // 格式菜单：字体设置
+    QMenu *formatMenu = menuBar()->addMenu("格式");
+    QAction *fontAction = formatMenu->addAction("字体设置");
+    connect(fontAction, &QAction::triggered, this, &MainWindow::chooseFormat);
+
+    // 查找菜单：查找替换
+    QMenu *findMenu = menuBar()->addMenu("查找");
+    QAction *findReplaceAction = findMenu->addAction("查找替换");
+    connect(findReplaceAction, &QAction::triggered, this, &MainWindow::showFindReplaceDialog);
 }
 
 void MainWindow::createToolBars() {
@@ -174,4 +192,107 @@ void MainWindow::closeTab(int index) {
     QWidget *page = tabWidget->widget(index);
     tabWidget->removeTab(index);
     page->deleteLater();
+}
+
+void MainWindow::chooseFormat() {
+    if (QTextEdit *editor = currentEditor()) {
+        bool ok;
+        QFont font = QFontDialog::getFont(&ok, editor->font(), this, "选择字体");
+        if (ok) {
+            editor->setFont(font);
+            QColor color = QColorDialog::getColor(Qt::black, this, "选择字体颜色");
+            if (color.isValid()) {
+                // 修改整个文档的文字颜色
+                QTextCharFormat fmt;
+                fmt.setForeground(color);
+                QTextCursor cursor = editor->textCursor();
+                cursor.select(QTextCursor::Document);
+                cursor.mergeCharFormat(fmt);
+                editor->setTextCursor(cursor);
+            }
+        }
+    }
+}
+
+void MainWindow::showFindReplaceDialog() {
+    QDialog dialog(this);
+    dialog.setWindowTitle("查找替换");
+    QGridLayout layout(&dialog);
+
+    QLabel labelFind("查找:");
+    QLineEdit editFind;
+    QLabel labelReplace("替换为:");
+    QLineEdit editReplace;
+    QCheckBox checkCase("区分大小写");
+    QCheckBox checkWhole("全词匹配");
+    QPushButton btnFind("查找下一个");
+    QPushButton btnReplace("替换");
+    QPushButton btnReplaceAll("替换全部");
+    QPushButton btnCancel("取消");
+
+    layout.addWidget(&labelFind, 0, 0);
+    layout.addWidget(&editFind, 0, 1, 1, 3);
+    layout.addWidget(&labelReplace, 1, 0);
+    layout.addWidget(&editReplace, 1, 1, 1, 3);
+    layout.addWidget(&checkCase, 2, 0);
+    layout.addWidget(&checkWhole, 2, 1);
+    layout.addWidget(&btnFind, 3, 0);
+    layout.addWidget(&btnReplace, 3, 1);
+    layout.addWidget(&btnReplaceAll, 3, 2);
+    layout.addWidget(&btnCancel, 3, 3);
+
+    connect(&btnFind, &QPushButton::clicked, [&](){
+        if (QTextEdit *editor = currentEditor()) {
+            QTextDocument::FindFlags flags;
+            if (checkCase.isChecked())
+                flags |= QTextDocument::FindCaseSensitively;
+            if (checkWhole.isChecked())
+                flags |= QTextDocument::FindWholeWords;
+            if (!editor->find(editFind.text(), flags))
+                QMessageBox::information(this, "查找", "未找到匹配内容");
+        }
+    });
+
+    connect(&btnReplace, &QPushButton::clicked, [&](){
+        if (QTextEdit *editor = currentEditor()) {
+            QTextCursor cursor = editor->textCursor();
+            if (cursor.hasSelection() && cursor.selectedText() == editFind.text()) {
+                cursor.insertText(editReplace.text());
+            }
+            QTextDocument::FindFlags flags;
+            if (checkCase.isChecked())
+                flags |= QTextDocument::FindCaseSensitively;
+            if (checkWhole.isChecked())
+                flags |= QTextDocument::FindWholeWords;
+            if (!editor->find(editFind.text(), flags))
+                QMessageBox::information(this, "查找替换", "未找到匹配内容");
+        }
+    });
+
+    connect(&btnReplaceAll, &QPushButton::clicked, [&](){
+        if (QTextEdit *editor = currentEditor()) {
+            QTextDocument *doc = editor->document();
+            QTextCursor cursor(doc);
+            cursor.beginEditBlock();
+            QTextDocument::FindFlags flags;
+            if (checkCase.isChecked())
+                flags |= QTextDocument::FindCaseSensitively;
+            if (checkWhole.isChecked())
+                flags |= QTextDocument::FindWholeWords;
+            int count = 0;
+            while (true) {
+                cursor = doc->find(editFind.text(), cursor, flags);
+                if (cursor.isNull())
+                    break;
+                cursor.insertText(editReplace.text());
+                count++;
+            }
+            cursor.endEditBlock();
+            QMessageBox::information(this, "替换全部", QString("共替换 %1 处").arg(count));
+        }
+    });
+
+    connect(&btnCancel, &QPushButton::clicked, &dialog, &QDialog::reject);
+
+    dialog.exec();
 }

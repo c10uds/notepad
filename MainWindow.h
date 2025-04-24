@@ -21,6 +21,8 @@ public:
 
 private slots:
     void closeTab(int index);
+    void chooseFormat();
+    void showFindReplaceDialog();
 
 private:
     QTabWidget *tabWidget;
