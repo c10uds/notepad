@@ -85,7 +85,7 @@ void MainWindow::createMenus() {
 }
 
 void MainWindow::showAboutDialog() {
-    QMessageBox::about(this, "关于", "这是一个简单的记事本应用，支持多标签页、格式设置、查找替换等功能。\n\n版本：1.0\n作者：Your Name");
+    QMessageBox::about(this, "关于", "这是一个简单的记事本应用，支持多标签页、格式设置、查找替换等功能。\n\n版本：1.0\n作者：c10uds");
 }
 void MainWindow::createToolBars() {
     QToolBar *toolBar = addToolBar("Main Toolbar");
